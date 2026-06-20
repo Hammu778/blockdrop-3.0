@@ -1,0 +1,42 @@
+name: Build IPA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Get the files
+        uses: actions/checkout@v4
+
+      - name: Unzip the project
+        run: unzip -o BlockDrop.zip -d _src
+
+      - name: Build (unsigned)
+        run: |
+          cd _src/BlockDrop
+          xcodebuild \
+            -project BlockDrop.xcodeproj \
+            -scheme BlockDrop \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/BlockDrop.xcarchive" \
+            archive \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Make the .ipa
+        run: |
+          cd _src/BlockDrop/build
+          mkdir -p Payload
+          cp -R BlockDrop.xcarchive/Products/Applications/BlockDrop.app Payload/
+          zip -r -q BlockDrop-unsigned.ipa Payload
+          ls -lh BlockDrop-unsigned.ipa
+
+      - name: Upload the .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockDrop-unsigned-ipa
+          path: _src/BlockDrop/build/BlockDrop-unsigned.ipa
+          if-no-files-found: error
